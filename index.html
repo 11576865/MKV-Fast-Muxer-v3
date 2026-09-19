@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark light" />
+    <title>MKV Fast Muxer v3</title>
+  </head>
+  <body>
+    <main class="page">
+      <section class="panel">
+        <div class="head">
+          <div>
+            <h1>MKV Fast Muxer v3</h1>
+            <p>视频、音频直接复制；ASS 作为软字幕；TTF/OTF 作为字体附件。全程在浏览器本地处理。</p>
+          </div>
+          <div class="badge">Mux only · Never encode</div>
+        </div>
+
+        <div class="pickers">
+          <label class="picker">
+            <span class="num">1</span>
+            <span class="picker-main">
+              <strong>选择视频</strong>
+              <small>系统文件选择器；支持 MP4 / MKV / WebM / MOV / M4V</small>
+              <span id="videoName" class="filename">未选择</span>
+            </span>
+            <input id="videoInput" type="file" />
+          </label>
+
+          <label class="picker">
+            <span class="num">2</span>
+            <span class="picker-main">
+              <strong>选择 ASS 字幕</strong>
+              <small>不会烧录进画面</small>
+              <span id="subName" class="filename">未选择</span>
+            </span>
+            <input id="subInput" type="file" accept=".ass,text/plain" />
+          </label>
+
+          <label class="picker">
+            <span class="num">3</span>
+            <span class="picker-main">
+              <strong>选择字体</strong>
+              <small>TTF / OTF；封装完成后保留选择，方便连续处理</small>
+              <span id="fontName" class="filename">未选择</span>
+            </span>
+            <input id="fontInput" type="file" accept=".ttf,.otf,font/ttf,font/otf" />
+          </label>
+        </div>
+
+        <div class="summary">
+          <div><span>视频</span><b>Copy</b></div>
+          <div><span>音频</span><b>Copy</b></div>
+          <div><span>字幕</span><b>ASS</b></div>
+          <div><span>字体</span><b>Attachment</b></div>
+          <div><span>输出</span><b id="outputName">—</b></div>
+        </div>
+
+        <button id="muxBtn" class="primary" type="button">开始封装</button>
+
+        <div id="status" class="status" aria-live="polite">选择三个文件后即可开始。</div>
+        <div class="progress" aria-hidden="true"><div id="bar"></div></div>
+
+        <a id="downloadLink" class="download hidden" href="#" download>保存 MKV</a>
+
+        <details>
+          <summary>日志</summary>
+          <pre id="log"></pre>
+        </details>
+      </section>
+    </main>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
