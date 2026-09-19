@@ -57,3 +57,16 @@ npm run build
 因此媒体流不会因为封装过程被再次压缩。字幕与字体作为 MKV 内部轨道/附件加入。
 
 浏览器版 ffmpeg.wasm 需要把输入文件完整载入浏览器可用内存，因此超大视频的实际可处理上限受设备内存和浏览器限制。
+
+## 许可证
+
+本仓库原创代码采用 [MIT License](./LICENSE)。
+
+项目使用/分发的第三方组件仍按各自许可证授权，其中：
+
+- `@ffmpeg/ffmpeg` 0.12.15 — MIT
+- `@ffmpeg/util` 0.12.2 — MIT
+- `@ffmpeg/core` 0.12.10 — GPL-2.0-or-later
+
+详细说明见 [THIRD_PARTY_LICENSES.md](./THIRD_PARTY_LICENSES.md)。
+
