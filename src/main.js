@@ -1,6 +1,7 @@
 import './style.css';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile } from '@ffmpeg/util';
+import { forceAssFontFamily, readFontFamily } from './ass-font-rewrite.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -133,8 +134,14 @@ muxBtn.addEventListener('click', async () => {
     status.textContent = '正在把文件载入浏览器内存……';
     bar.style.width = '20%';
 
+    status.textContent = '正在读取字体内部名称并修正 ASS…';
+    const fontFamily = await readFontFamily(font);
+    const sourceAss = await sub.text();
+    const rewrittenAss = forceAssFontFamily(sourceAss, fontFamily);
+    logEl.textContent += `ASS 字体已强制改为上传字体的内部名称：${fontFamily}\n`;
+
     await ffmpeg.writeFile(videoPath, await fetchFile(video));
-    await ffmpeg.writeFile(subPath, await fetchFile(sub));
+    await ffmpeg.writeFile(subPath, new TextEncoder().encode(rewrittenAss));
     await ffmpeg.writeFile(fontPath, await fetchFile(font));
 
     status.textContent = '正在无损封装 MKV……';
@@ -176,7 +183,7 @@ muxBtn.addEventListener('click', async () => {
     downloadLink.classList.remove('hidden');
 
     bar.style.width = '100%';
-    status.textContent = '完成。视频/音频未重新编码；字幕和字体已写入 MKV。';
+    status.textContent = `完成。ASS 已改为字体内部名称“${fontFamily}”；视频/音频未重新编码。`;
 
     videoInput.value = '';
     subInput.value = '';
