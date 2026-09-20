@@ -1,0 +1,100 @@
+// Read the OpenType `name` table in the browser. For ASS, the family name is
+// the name libass/fontconfig should resolve after the font is attached.
+export async function readFontFamily(file) {
+  const view = new DataView(await file.arrayBuffer());
+  if (view.byteLength < 12) throw new Error('字体文件过小');
+  const tag = readTag(view, 0);
+  const signature = view.getUint32(0, false);
+  if (!(signature === 0x00010000 || tag === 'OTTO' || tag === 'true' || tag === 'typ1')) {
+    throw new Error('字体不是有效的 TTF 或 OTF 文件');
+  }
+  const tableCount = view.getUint16(4, false);
+  let offset = -1;
+  let length = 0;
+  for (let i = 0; i < tableCount; i++) {
+    const p = 12 + i * 16;
+    if (p + 16 > view.byteLength) break;
+    if (readTag(view, p) === 'name') {
+      offset = view.getUint32(p + 8, false);
+      length = view.getUint32(p + 12, false);
+      break;
+    }
+  }
+  if (offset < 0 || offset + 6 > view.byteLength || offset + length > view.byteLength) {
+    throw new Error('字体缺少可读取的内部名称');
+  }
+  const count = view.getUint16(offset + 2, false);
+  const strings = offset + view.getUint16(offset + 4, false);
+  const found = new Map();
+  for (let i = 0; i < count; i++) {
+    const p = offset + 6 + i * 12;
+    if (p + 12 > view.byteLength) break;
+    const platform = view.getUint16(p, false);
+    const language = view.getUint16(p + 4, false);
+    const nameId = view.getUint16(p + 6, false);
+    const bytes = view.getUint16(p + 8, false);
+    const relative = view.getUint16(p + 10, false);
+    const start = strings + relative;
+    if (start + bytes > view.byteLength || ![1, 4, 6, 16].includes(nameId)) continue;
+    const text = decodeName(view, start, bytes, platform).trim();
+    if (!text) continue;
+    const score = (platform === 3 ? 10 : 0) + ([0x0409, 0x0804, 0x0404].includes(language) ? 2 : 0);
+    const old = found.get(nameId);
+    if (!old || score > old.score) found.set(nameId, { text, score });
+  }
+  const family = found.get(16)?.text || found.get(1)?.text || found.get(4)?.text || found.get(6)?.text;
+  if (!family) throw new Error('字体缺少 Family Name / Full Name');
+  return family;
+}
+
+// The muxer accepts one attachment, therefore leaving a different ASS font
+// request would silently cause a later fallback. Rewrite styles and inline \fn.
+export function forceAssFontFamily(text, family) {
+  const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/);
+  let section = '';
+  let styleFormat = [];
+  let eventFormat = [];
+  return lines.map(raw => {
+    const header = raw.match(/^\s*\[([^\]]+)\]\s*$/);
+    if (header) { section = header[1].toLowerCase(); return raw; }
+    if (section === 'v4+ styles' || section === 'v4 styles') {
+      if (/^\s*Format\s*:/i.test(raw)) {
+        styleFormat = fieldsAfterColon(raw).split(',').map(x => x.trim().toLowerCase());
+      } else if (/^\s*Style\s*:/i.test(raw) && styleFormat.length) {
+        const values = splitAssFields(fieldsAfterColon(raw), styleFormat.length);
+        const index = styleFormat.indexOf('fontname');
+        if (index >= 0) values[index] = family;
+        return raw.slice(0, raw.indexOf(':') + 1) + ' ' + values.join(',');
+      }
+    } else if (section === 'events') {
+      if (/^\s*Format\s*:/i.test(raw)) {
+        eventFormat = fieldsAfterColon(raw).split(',').map(x => x.trim().toLowerCase());
+      } else if (/^\s*(Dialogue|Comment)\s*:/i.test(raw) && eventFormat.length) {
+        const values = splitAssFields(fieldsAfterColon(raw), eventFormat.length);
+        const index = eventFormat.indexOf('text');
+        if (index >= 0) values[index] = values[index].replace(/\\fn([^\\}]+)/gi, `\\fn${family}`);
+        return raw.slice(0, raw.indexOf(':') + 1) + ' ' + values.join(',');
+      }
+    }
+    return raw;
+  }).join('\n');
+}
+
+function fieldsAfterColon(line) { return line.slice(line.indexOf(':') + 1); }
+function splitAssFields(value, count) {
+  const items = value.split(',');
+  if (items.length <= count) return items;
+  return [...items.slice(0, count - 1), items.slice(count - 1).join(',')];
+}
+function readTag(view, offset) {
+  return String.fromCharCode(view.getUint8(offset), view.getUint8(offset + 1), view.getUint8(offset + 2), view.getUint8(offset + 3));
+}
+function decodeName(view, start, length, platform) {
+  const bytes = new Uint8Array(view.buffer, view.byteOffset + start, length);
+  if (platform === 0 || platform === 3) {
+    let value = '';
+    for (let i = 0; i + 1 < bytes.length; i += 2) value += String.fromCharCode((bytes[i] << 8) | bytes[i + 1]);
+    return value.replace(/\u0000/g, '');
+  }
+  return new TextDecoder('latin1').decode(bytes);
+}
